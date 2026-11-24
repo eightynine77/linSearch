@@ -8,7 +8,7 @@ from PySide6.QtWidgets import (
     QMessageBox, QInputDialog, QLabel
 )
 from PySide6.QtCore import Qt, QThread, Signal
-from PySide6.QtGui import QCursor
+from PySide6.QtGui import QCursor, QColor
 
 class SearchWorker(QThread):
     """Background thread to run the search process without freezing the GUI."""
@@ -104,7 +104,14 @@ class SearchApp(QMainWindow):
         self.search_input.setEnabled(False)
         self.location_input.setEnabled(False)
 
-        # Start background thread
+        # add loading item and state flag 
+        self.loading_item = QListWidgetItem("searching... please wait.")
+        self.loading_item.setForeground(QColor("black"))
+        self.loading_item.setFlags(Qt.NoItemFlags)
+        self.results_list.addItem(self.loading_item)
+        self.is_searching = True
+
+        # start background thread
         self.worker = SearchWorker(location, search_term)
         self.worker.item_found.connect(self.add_single_result)
         self.worker.error_occurred.connect(self.handle_search_error)
@@ -112,6 +119,11 @@ class SearchApp(QMainWindow):
         self.worker.start()
 
     def add_single_result(self, path):
+        # remove loading item on first result ---
+        if hasattr(self, 'is_searching') and self.is_searching:
+            self.results_list.takeItem(0) # removes the "searching..." row
+            self.is_searching = False
+
         name = os.path.basename(path)
         if not name:  # Edge case for root dir
             name = path
@@ -123,9 +135,15 @@ class SearchApp(QMainWindow):
 
     def handle_search_error(self, error_msg):
         self.results_list.clear()
-        QMessageBox.critical(self, "Error", f"Failed to execute search.sh: {error_msg}")
+        QMessageBox.critical(self, "Error", f"Failed to execute search: {error_msg}")
 
     def restore_ui(self):
+        # handle zero results 
+        if hasattr(self, 'is_searching') and self.is_searching:
+            self.loading_item.setText("search finished. no results found.")
+            self.loading_item.setForeground(QColor("black"))
+            self.is_searching = False
+
         # Re-enable inputs once the background thread finishes
         self.search_btn.setEnabled(True)
         self.search_input.setEnabled(True)
