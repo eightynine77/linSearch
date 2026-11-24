@@ -51,7 +51,7 @@ class SearchWorker(QThread):
 class SearchApp(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("File Search")
+        self.setWindowTitle("linSearch - file and folder search")
         self.resize(800, 600)
 
         # Central Widget & Layout
