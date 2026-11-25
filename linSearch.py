@@ -86,8 +86,8 @@ class SearchApp(QMainWindow):
         self.results_list.setHeaderLabels(["name", "path"])
         
         # Make the name column fit the content, and the path stretch to the end
-        self.results_list.header().setSectionResizeMode(0, QHeaderView.ResizeToContents)
-        self.results_list.header().setSectionResizeMode(1, QHeaderView.Stretch)
+        self.results_list.header().setSectionResizeMode(0, QHeaderView.Interactive)
+        self.results_list.header().setSectionResizeMode(1, QHeaderView.Interactive)
 
         self.results_list.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         self.results_list.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
