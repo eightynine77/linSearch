@@ -4,11 +4,11 @@ import shutil
 import subprocess
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QLineEdit, QPushButton, QListWidget, QListWidgetItem, QMenu,
-    QMessageBox, QInputDialog, QLabel
+    QLineEdit, QPushButton, QTreeWidget, QTreeWidgetItem, QHeaderView, 
+    QMenu, QMessageBox, QInputDialog, QLabel
 )
 from PySide6.QtCore import Qt, QThread, Signal
-from PySide6.QtGui import QCursor, QColor
+from PySide6.QtGui import QCursor, QColor, QFont
 
 class SearchWorker(QThread):
     """Background thread to run the search process without freezing the GUI."""
@@ -81,13 +81,20 @@ class SearchApp(QMainWindow):
         # loading status label
         self.status_label = QLabel("")
 
-        # Search Results List
-        self.results_list = QListWidget()
+        # Search Results List (Now a TreeWidget for columns)
+        self.results_list = QTreeWidget()
+        self.results_list.setHeaderLabels(["name", "path"])
+        
+        # Make the name column fit the content, and the path stretch to the end
+        self.results_list.header().setSectionResizeMode(0, QHeaderView.ResizeToContents)
+        self.results_list.header().setSectionResizeMode(1, QHeaderView.Stretch)
+
         self.results_list.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         self.results_list.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         self.results_list.itemDoubleClicked.connect(self.on_double_click)
         self.results_list.setContextMenuPolicy(Qt.CustomContextMenu)
         self.results_list.customContextMenuRequested.connect(self.show_context_menu)
+        
 
         main_layout.addLayout(top_layout)
         main_layout.addWidget(self.status_label) 
@@ -127,10 +134,10 @@ class SearchApp(QMainWindow):
         if not name:  # Edge case for root dir
             name = path
         
-        item = QListWidgetItem(name)
-        # Store the full path in the item's hidden data
-        item.setData(Qt.UserRole, path)
-        self.results_list.addItem(item)
+        # Pass a list of strings for the columns: [name, path]
+        item = QTreeWidgetItem([name, path])
+        item.setData(0, Qt.UserRole, path)
+        self.results_list.addTopLevelItem(item)
 
     def handle_search_error(self, error_msg):
         self.results_list.clear()
@@ -138,7 +145,7 @@ class SearchApp(QMainWindow):
 
     def restore_ui(self):
         # handle zero results 
-        if self.results_list.count() == 0:
+        if self.results_list.topLevelItemCount() == 0:
             self.status_label.setText("search finished. no results found.")
         else:
             self.status_label.setText("Search finished.")
@@ -148,17 +155,17 @@ class SearchApp(QMainWindow):
         self.search_input.setEnabled(True)
         self.location_input.setEnabled(True)
 
-    def on_double_click(self, item):
-        path = item.data(Qt.UserRole)
+    def on_double_click(self, item, column):
+        path = item.data(0, Qt.UserRole)
         if path:
             self.open_with_fallback(path)
 
     def show_context_menu(self, position):
         item = self.results_list.itemAt(position)
-        if not item or not item.data(Qt.UserRole):
+        if not item or not item.data(0, Qt.UserRole):
             return
 
-        path = item.data(Qt.UserRole)
+        path = item.data(0, Qt.UserRole)
         is_dir = os.path.isdir(path)
         type_str = "folder" if is_dir else "file"
 
@@ -185,15 +192,16 @@ class SearchApp(QMainWindow):
 
     def rename_item(self, item, current_path):
         current_name = os.path.basename(current_path)
-        new_name, ok = QInputDialog.getText(self, "Rename", "Enter new name:", text=current_name)
+        new_name, ok = QInputDialog.getText(self, "rename", "enter new name:", text=current_name)
         
         if ok and new_name and new_name != current_name:
             parent_dir = os.path.dirname(current_path)
             new_path = os.path.join(parent_dir, new_name)
             try:
                 os.rename(current_path, new_path)
-                item.setText(new_name)
-                item.setData(Qt.UserRole, new_path)
+                item.setText(0, new_name)   # Update Name column
+                item.setText(1, new_path)   # Update Path column
+                item.setData(0, Qt.UserRole, new_path)
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Could not rename:\n{e}")
 
@@ -212,8 +220,8 @@ class SearchApp(QMainWindow):
                     os.remove(path)
                 
                 # Remove item from the list UI
-                row = self.results_list.row(item)
-                self.results_list.takeItem(row)
+                index = self.results_list.indexOfTopLevelItem(item)
+                self.results_list.takeTopLevelItem(index)
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Could not delete:\n{e}")
 
