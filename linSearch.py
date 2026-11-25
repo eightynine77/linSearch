@@ -73,10 +73,13 @@ class SearchApp(QMainWindow):
         self.search_btn.clicked.connect(self.perform_search)
         self.search_input.returnPressed.connect(self.perform_search)
 
-        top_layout.addWidget(QLabel("Location:"))
+        top_layout.addWidget(QLabel("location:"))
         top_layout.addWidget(self.location_input, 1)
         top_layout.addWidget(self.search_input, 3)
         top_layout.addWidget(self.search_btn)
+
+        # loading status label
+        self.status_label = QLabel("")
 
         # Search Results List
         self.results_list = QListWidget()
@@ -87,8 +90,8 @@ class SearchApp(QMainWindow):
         self.results_list.customContextMenuRequested.connect(self.show_context_menu)
 
         main_layout.addLayout(top_layout)
+        main_layout.addWidget(self.status_label) 
         main_layout.addWidget(self.results_list)
-
         self.worker = None
 
     def perform_search(self):
@@ -104,12 +107,9 @@ class SearchApp(QMainWindow):
         self.search_input.setEnabled(False)
         self.location_input.setEnabled(False)
 
-        # add loading item and state flag 
-        self.loading_item = QListWidgetItem("searching... please wait.")
-        self.loading_item.setForeground(QColor("black"))
-        self.loading_item.setFlags(Qt.NoItemFlags)
-        self.results_list.addItem(self.loading_item)
-        self.is_searching = True
+        # loading status
+        self.status_label.setText("searching... please wait.")
+        self.status_label.setStyleSheet("color: black;")
 
         # start background thread
         self.worker = SearchWorker(location, search_term)
@@ -120,9 +120,8 @@ class SearchApp(QMainWindow):
 
     def add_single_result(self, path):
         # remove loading item on first result ---
-        if hasattr(self, 'is_searching') and self.is_searching:
-            self.results_list.takeItem(0) # removes the "searching..." row
-            self.is_searching = False
+        if self.status_label.text() == "searching... please wait.":
+            self.status_label.setText("finding results...")
 
         name = os.path.basename(path)
         if not name:  # Edge case for root dir
@@ -139,10 +138,10 @@ class SearchApp(QMainWindow):
 
     def restore_ui(self):
         # handle zero results 
-        if hasattr(self, 'is_searching') and self.is_searching:
-            self.loading_item.setText("search finished. no results found.")
-            self.loading_item.setForeground(QColor("black"))
-            self.is_searching = False
+        if self.results_list.count() == 0:
+            self.status_label.setText("search finished. no results found.")
+        else:
+            self.status_label.setText("Search finished.")
 
         # Re-enable inputs once the background thread finishes
         self.search_btn.setEnabled(True)
